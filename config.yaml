@@ -1,0 +1,149 @@
+cookie:
+  expiry_days: 120
+  key: $2b$12$N7I9kz7CGdH5Gr6xYQ47xeu083YEkp1EUHvJt/3k3PgKEgLdXiuli
+  name: streamlit_auth_cookie
+credentials:
+  usernames:
+    marcos:
+      email: marcos.jantsch@valorflorestal.com.br
+      name: Marcos
+      password: $2b$12$cR4lZfCkgiwZXCPFx2EdF.74AJxYIziF.BYUrPkLmoTscNBSiS5OS
+      role: admin
+    avant:
+      name: avant
+      email: marcos.jantsch@valorflorestal.com.br
+      role: admin
+      password: $2b$12$yEa.a00RD3509MxACjRZoOqnN.2XHZzcjLfkkXZTcoGeT/yrjlldy
+    marcosj:
+      name: marcosj
+      email: marcos.jantsch@gmail.com
+      role: user
+      password: $2b$12$fk6in2KCELms6eHEhS7GpuEGrOUmBVwBpkxx5ZjeGlRMF3P8cVOCy
+    valor:
+      name: valor
+      email: marcos.jantsch@valorflorestal.com.br
+      role: admin
+      password: $2b$12$Y3ASSU.QMhamV9HE7zLGNeQz.3eOOQKNJopaEi9AIz5lBzPy0h2vy
+    valorms:
+      name: valorms
+      email: marcos.jantsch@valorflorestal.com.br
+      role: admin
+      password: $2b$12$77rS0DllJPJ7HqpadCv4heq4Ve8FSz79j.AreJLifxpoD.ud1l56i
+    renato:
+      name: renato
+      email: marcos.jantsch@valorflorestal.com.br
+      role: admin
+      password: $2b$12$EpZ0Jogp1k8nucYY11fwNORXOpp3ykviMOEC7zf4IJP5f1YFC8Vl2
+    celio:
+      name: celio
+      email: marcos.jantsch@valorflorestal.com.br
+      role: admin
+      password: $2b$12$Yl284nkPWuZI2NcvrPziiOUyy5LdoUIfBBBiWH.q1tuMS57MRRkym
+    robison:
+      name: robison
+      email: marcos.jantsch@valorflorestal.com.br
+      role: admin
+      password: $2b$12$6u3ptWmwluVH00FbqVDVG.ceHJ6mCNLbGuv7AYfF/XUNl5k2nhnUK
+    marlo:
+      name: marlo
+      email: marcos.jantsch@valorflorestal.com.br
+      role: admin
+      password: $2b$12$H2IA1OXSCderSguIOWmJdOr2lFTW7rpIRwkDrHzZ.YYisr4mihciG
+    cesar:
+      name: cesar
+      email: marcos.jantsch@valorflorestal.com.br
+      role: admin
+      password: $2b$12$9Pf8U52Cj4b/9HUIMxRxZuaeaI4KNvNkIIEcDXj3/g9VDpRD27rwu
+    sandro:
+      name: sandro
+      email: marcos.jantsch@valorflorestal.com.br
+      role: admin
+      password: $2b$12$7o6dYIprzvRRlAKFVF6rT.2XF3l5XoAnEu5hU7XX4QBOLeVUd7DlO
+    jorge:
+      name: jorge
+      email: marcos.jantsch@valorflorestal.com.br
+      role: admin
+      password: $2b$12$zT5SfOyG/c0WVjgLJ6s.hemHHF01cTOSHXzLpo17UxdvpmMMXsjf6
+    fabio:
+      name: fabio
+      email: marcos.jantsch@valorflorestal.com.br
+      role: admin
+      password: $2b$12$J0Qk4NcGPiS7197NZwaI9.bThFGGKVp/AFIAV7UxdN3AXp6tX51bK
+    wanderlei:
+      name: wanderlei
+      email: marcos.jantsch@valorflorestal.com.br
+      role: admin
+      password: $2b$12$MkOjYkOw0yMAuuoCon0wa.Wz.nfeibO/Go/J5.0Bha36VTdFK4ge2
+    jonathan:
+      name: jonathan
+      email: marcos.jantsch@valorflorestal.com.br
+      role: admin
+      password: $2b$12$w2dmTfF.AfyB6OuONqbOcufp7nPvCLh1YbfRrJnKw9FowcObs5nxC
+    rogerio:
+      name: rogerio
+      email: marcos.jantsch@valorflorestal.com.br
+      role: admin
+      password: $2b$12$VEzYc1EqUKfyZGj1AwEdd.pa7QbQppw2gcX.5oCyG8dBFyQTe1dPi
+    ireni:
+      name: ireni
+      email: marcos.jantsch@valorflorestal.com.br
+      role: admin
+      password: $2b$12$eSeCXQzUmmDq74RhbHo68O9vW6uflC.2ET0ie5BJ76SsYCWMyhahK
+    helena:
+      name: helena
+      email: marcos.jantsch@valorflorestal.com.br
+      role: admin
+      password: $2b$12$cOrfu7.8pbMffWD16SDfKuQTeIkEDKKPe040vFCN.up5OXl/uzITG
+    marmonn:
+      name: marmonn
+      email: marcos.jantsch@valorflorestal.com.br
+      role: admin
+      password: $2b$12$nMcPpCHAc7vhqQDpLdvVy.Ju9jZ9fYbQBde/DlxAnXaV.LxomIBG.
+    elza:
+      name: elza
+      email: marcos.jantsch@valorflorestal.com.br
+      role: admin
+      password: $2b$12$lSEOjJlUGO1Tt.RJbKEexODLmwaEO6jTPDPnyKA6/VB.BbOeT7sSK
+    allan:
+      name: allan
+      email: marcos.jantsch@valorflorestal.com.br
+      role: admin
+      password: $2b$12$0tDMBk1oX7DLDUs13aLveeopyJv8N8bbVP9aQ4RQe8iqWLcD2l6kG
+    fabiop:
+      name: fabiop
+      email: marcos.jantsch@valorflorestal.com.br
+      role: admin
+      password: $2b$12$FTfXN80.nGuKcGN/tfmgCuOd0NiSWzWmWPFWoTmcabS8qCiCjSVCG
+    miro:
+      name: miro
+      email: marcos.jantsch@valorflorestal.com.br
+      role: admin
+      password: $2b$12$.DN9VvpPDmkbKI5H3nZHses51E5zaGvW/i.B0jrOdypGQSdZiEh4u
+    joaocesar:
+      name: joaocesar
+      email: marcos.jantsch@valorflorestal.com.br
+      role: admin
+      password: $2b$12$4ckxp9hWorcTDKsWHQpuEeGGrNj779J6DMaUa5wKQs6ou4tG/hige
+    julio:
+      name: julio
+      email: marcos.jantsch@valorflorestal.com.br
+      role: admin
+      password: $2b$12$yBxx39S5BXaynLACqroTt.jdlTd5OoqrjHVtbk9hu.mN6sjFxzGrS
+    andre:
+      name: andre
+      email: marcos.jantsch@valorflorestal.com.br
+      role: admin
+      password: $2b$12$7ayuU.f3HgpbytFGUrcY2efxapeWcVR1hbzSXhrh35WflQyTtFjfG
+    marcosv:
+      name: marcosv
+      email: marcos.jantsch@valorflorestal.com.br
+      role: admin
+      password: $2b$12$i0B6gfuWu6yPRtQAUaat8OmOX3TR74nuOEqcxNHrzEJ5rtKndK6UC
+    rafael:
+      name: rafael
+      email: marcos.jantsch@valorflorestal.com.br
+      role: admin
+      password: $2b$12$VXanUE0Jk47kGZcXQbzeAOD6Vl1guEP6ZlFEYJp6zMDztlvTygMHa
+preauthorized:
+  emails:
+  - marcos.jantsch@gmail.com
