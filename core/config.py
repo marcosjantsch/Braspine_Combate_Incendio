@@ -19,8 +19,8 @@ GEO_PATH = Path(
 )
 
 DEFAULT_RANGE_KM = 25.0
-DEFAULT_EE_PROJECT = "streamelit"
-ASSET_FAZENDAS_GEE = "projects/streamelit/assets/GFP/Base_GFP_Brasil_Dezembro_2025_geolimits"
+DEFAULT_EE_PROJECT = "braspine"
+ASSET_FAZENDAS_GEE = "projects/braspine/assets/GFP/Base_GFP_Brasil_Dezembro_2025_geolimits"
 SIMPLIFICATION_TOLERANCE = 0.001
 
 SATELLITE_OPTIONS = {

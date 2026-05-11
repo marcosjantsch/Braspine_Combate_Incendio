@@ -19,7 +19,7 @@ from services.gee_service import build_tile_url, ee, initialize_earth_engine
 
 TEMPORAL_WINDOW_HOURS = 24
 ACTIVE_FIRE_WINDOW_HOURS = 48
-CURRENT_ACTIVE_FIRE_WINDOW_HOURS = 1.5
+CURRENT_ACTIVE_FIRE_WINDOW_HOURS = ACTIVE_FIRE_WINDOW_HOURS
 NOAA_HMS_SMOKE_BASE_URL = "https://satepsanone.nesdis.noaa.gov/pub/FIRE/web/HMS/Smoke_Polygons/Shapefile"
 NOAA_HMS_CACHE_DIR = BASE_DIR / "data" / "cache" / "noaa_hms_smoke"
 NASA_GIBS_WMS_URL = "https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi"

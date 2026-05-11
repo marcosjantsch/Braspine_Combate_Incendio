@@ -403,6 +403,17 @@ def _analysis_reference_payload() -> tuple[str | dict, str]:
     return reference_payload, end_utc.isoformat()
 
 
+def _hours_label(hours: float) -> str:
+    if hours < 2:
+        return f"{round(hours * 60):.0f} minutos"
+    if abs(hours - 24.0) < 0.01:
+        return "24 horas"
+    if abs(hours % 24.0) < 0.01:
+        days = int(hours / 24.0)
+        return f"{days} dias" if days > 1 else "1 dia"
+    return f"{hours:g} horas"
+
+
 def apply_fire_risk_and_goes(
     selected: List[str],
     roi_result: dict | None = None,
@@ -446,7 +457,9 @@ def apply_fire_risk_and_goes(
     st.session_state["gee_tile_layers"] = source_layers
     status_messages = []
     if active_fire_window_hours is not None:
-        status_messages.append("Deteccoes ativas consultadas nos ultimos 90 minutos por uso de data/hora atual.")
+        status_messages.append(
+            f"Deteccoes ativas consultadas nas ultimas {_hours_label(float(active_fire_window_hours))} por uso de data/hora atual."
+        )
     else:
         status_messages.append("Deteccoes consultadas nas 24 horas do dia selecionado.")
     risk_panel = {"risk_value": None, "risk_class": "Nao calculado"}

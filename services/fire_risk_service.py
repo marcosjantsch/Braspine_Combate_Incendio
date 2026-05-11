@@ -4,7 +4,10 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta, timezone
 from typing import Dict, Optional
 
+from shapely.geometry import shape
+
 from services.gee_service import ee, initialize_earth_engine
+from services.weather_service import fetch_weather_window
 
 VIS_FIRE_RISK = {
     "min": 0,
@@ -52,16 +55,146 @@ def _reference_date(reference_datetime: str | None = None) -> date:
         return date.today()
 
 
+def _roi_center(roi_geojson: Dict) -> tuple[float, float]:
+    geom = shape(roi_geojson)
+    if geom.is_empty:
+        raise ValueError("ROI vazia.")
+    center = geom.centroid
+    return float(center.y), float(center.x)
+
+
+def _valid_numbers(values) -> list[float]:
+    numbers: list[float] = []
+    for value in values or []:
+        try:
+            if value is None:
+                continue
+            numbers.append(float(value))
+        except (TypeError, ValueError):
+            continue
+    return numbers
+
+
+def _mean(values, default: float | None = None) -> float | None:
+    numbers = _valid_numbers(values)
+    if not numbers:
+        return default
+    return sum(numbers) / len(numbers)
+
+
+def _sum(values, default: float = 0.0) -> float:
+    numbers = _valid_numbers(values)
+    if not numbers:
+        return default
+    return sum(numbers)
+
+
+def _max(values, default: float | None = None) -> float | None:
+    numbers = _valid_numbers(values)
+    if not numbers:
+        return default
+    return max(numbers)
+
+
+def _min(values, default: float | None = None) -> float | None:
+    numbers = _valid_numbers(values)
+    if not numbers:
+        return default
+    return min(numbers)
+
+
+def _score_value(value: float | None, low: float, high: float) -> float:
+    if value is None:
+        return 0.0
+    if high == low:
+        return 0.0
+    return max(0.0, min(1.0, (float(value) - low) / (high - low)))
+
+
+def _inverse_score_value(value: float | None, low: float, high: float) -> float:
+    return 1.0 - _score_value(value, low, high)
+
+
+def _dry_day_ratio(precipitation_values) -> float:
+    values = _valid_numbers(precipitation_values)
+    if not values:
+        return 0.0
+    dry_days = sum(1 for value in values if value < 1.0)
+    return dry_days / len(values)
+
+
+def _weather_fallback_fire_risk(roi_geojson: Dict, days: int, reference_datetime: str | None, ee_message: str) -> Dict:
+    try:
+        lat, lon = _roi_center(roi_geojson)
+        end = _reference_date(reference_datetime)
+        period_days = max(1, min(int(days), 30))
+        start = end - timedelta(days=period_days - 1)
+        payload = fetch_weather_window(lat, lon, start, days=period_days)
+        daily = payload.get("daily") or {}
+        hourly = payload.get("hourly") or {}
+
+        max_temperature = _mean(daily.get("temperature_2m_max"))
+        if max_temperature is None:
+            max_temperature = _max(hourly.get("temperature_2m"))
+        min_humidity = _min(hourly.get("relative_humidity_2m"))
+        precipitation_sum = _sum(daily.get("precipitation_sum") or hourly.get("precipitation"))
+        max_wind = _max(daily.get("wind_speed_10m_max") or hourly.get("wind_speed_10m"))
+        max_gust = _max(daily.get("wind_gusts_10m_max") or hourly.get("wind_gusts_10m"))
+        wind_reference = max(value for value in [max_wind or 0.0, max_gust or 0.0])
+
+        temperature_score = _score_value(max_temperature, 24.0, 40.0)
+        humidity_score = _inverse_score_value(min_humidity, 18.0, 55.0)
+        rain_score = _inverse_score_value(precipitation_sum, 5.0, 80.0)
+        wind_score = _score_value(wind_reference, 8.0, 38.0)
+        dry_days_score = _dry_day_ratio(daily.get("precipitation_sum"))
+
+        risk_value = round(
+            (
+                temperature_score * 28.0
+                + humidity_score * 24.0
+                + rain_score * 24.0
+                + wind_score * 14.0
+                + dry_days_score * 10.0
+            ),
+            1,
+        )
+        status_parts = [
+            "Indice de risco calculado por fallback meteorologico Open-Meteo.",
+            f"Periodo: {start.isoformat()} a {end.isoformat()}.",
+            f"Temperatura media maxima: {max_temperature:.1f} C." if max_temperature is not None else "",
+            f"Umidade minima: {min_humidity:.0f}%." if min_humidity is not None else "",
+            f"Chuva acumulada: {precipitation_sum:.1f} mm.",
+            f"Vento maximo: {wind_reference:.1f} km/h." if wind_reference else "",
+            f"Earth Engine indisponivel: {ee_message}",
+        ]
+        return {
+            "fire_risk_image": None,
+            "risk_value": risk_value,
+            "risk_class": classify_risk(risk_value),
+            "goes_image": None,
+            "goes_datetime": "",
+            "goes_hotspot_image": None,
+            "viirs_points": None,
+            "risk_period": f"{start.isoformat()} a {end.isoformat()}",
+            "status": " ".join(part for part in status_parts if part),
+        }
+    except Exception as exc:
+        return {
+            "fire_risk_image": None,
+            "risk_value": None,
+            "risk_class": "Sem dados",
+            "goes_image": None,
+            "goes_datetime": "",
+            "goes_hotspot_image": None,
+            "viirs_points": None,
+            "status": f"{ee_message} Fallback meteorologico indisponivel: {exc}",
+        }
+
+
 def build_fire_risk_index(roi_geojson: Dict, days: int = 30, reference_datetime: str | None = None) -> Dict:
     ok, message = initialize_earth_engine()
     if not ok or ee is None:
-        return {
-            "fire_risk_image": None,
-            "goes_image": None,
-            "goes_datetime": "",
-            "viirs_points": None,
-            "status": message,
-        }
+        return _weather_fallback_fire_risk(roi_geojson, days, reference_datetime, message)
 
     roi = _roi_geometry(roi_geojson)
     end = _reference_date(reference_datetime)

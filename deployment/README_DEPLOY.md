@@ -87,7 +87,7 @@ Configure tambem as variaveis/segredos do ambiente:
 ```text
 APP_AUTH_CONFIG=/app/auth/config.yaml
 APP_GEO_PATH=/app/data/Geo.shp
-EE_PROJECT=streamelit
+EE_PROJECT=braspine
 FOLIUM_RENDERER=html
 GOOGLE_APPLICATION_CREDENTIALS=/app/auth/earth-engine-service-account.json
 ```
@@ -108,7 +108,7 @@ Ha duas formas recomendadas:
 
 ```yaml
 earth_engine:
-  project: "streamelit"
+  project: "braspine"
   service_account_email: ""
   service_account_file: ""
 ```
@@ -117,7 +117,7 @@ earth_engine:
 
 ```yaml
 earth_engine:
-  project: "streamelit"
+  project: "braspine"
   service_account_email: "conta@projeto.iam.gserviceaccount.com"
   service_account_file: "/app/auth/earth-engine-service-account.json"
 ```
@@ -142,7 +142,7 @@ variaveis do ambiente antes de iniciar o Streamlit:
 ```text
 APP_AUTH_CONFIG=/app/auth/config.yaml
 APP_GEO_PATH=/app/data/Geo.shp
-EE_PROJECT=streamelit
+EE_PROJECT=braspine
 ```
 
 Se o Codebook publicar a aplicacao por uma porta propria, use essa porta no
