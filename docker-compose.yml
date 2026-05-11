@@ -1,0 +1,22 @@
+services:
+  plataforma-incendios:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: plataforma-incendios:latest
+    container_name: plataforma-incendios
+    ports:
+      - "${STREAMLIT_PORT:-8502}:8080"
+    environment:
+      PORT: 8080
+      FOLIUM_RENDERER: html
+      APP_AUTH_CONFIG: /app/auth/config.yaml
+      APP_GEO_PATH: /app/data/Geo.shp
+      EE_PROJECT: ${EE_PROJECT:-streamelit}
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-}
+      EE_CREDENTIALS_PATH: ${EE_CREDENTIALS_PATH:-}
+      EE_SERVICE_ACCOUNT_EMAIL: ${EE_SERVICE_ACCOUNT_EMAIL:-}
+    volumes:
+      - ./auth:/app/auth:ro
+      - ./data:/app/data
+    restart: unless-stopped

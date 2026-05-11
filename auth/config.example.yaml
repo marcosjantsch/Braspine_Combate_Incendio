@@ -1,0 +1,16 @@
+credentials:
+  usernames:
+    admin:
+      name: Administrador
+      email: admin@example.com
+      role: admin
+      # Replace with a bcrypt hash. Do not use plain-text passwords here.
+      # Generate one with:
+      # python -c "import bcrypt; print(bcrypt.hashpw(b'minha-senha', bcrypt.gensalt()).decode())"
+      password: "$2b$12$replace_this_with_a_real_bcrypt_hash"
+
+earth_engine:
+  project: "streamelit"
+  # Optional. Prefer mounting this file in Docker instead of baking it into the image.
+  service_account_email: ""
+  service_account_file: ""
