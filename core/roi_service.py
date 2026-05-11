@@ -47,6 +47,13 @@ def _dimensions_km(bounds: List[List[float]]) -> tuple[float, float]:
 
 def build_project_roi(gdf, selected_companies: List[str], buffer_km: float = DEFAULT_ROI_BUFFER_KM) -> Dict:
     farms = selected_company_farms(gdf, selected_companies)
+    selected_count = len({str(company).strip() for company in selected_companies or [] if str(company).strip()})
+    invalid_status = (
+        "A empresa selecionada nao possui geometria valida para ROI."
+        if selected_count == 1
+        else "As empresas selecionadas nao possuem geometria valida para ROI."
+    )
+    roi_subject = "pela empresa selecionada" if selected_count == 1 else "pelas empresas selecionadas"
     if farms is None or farms.empty:
         return {
             "ok": False,
@@ -65,7 +72,7 @@ def build_project_roi(gdf, selected_companies: List[str], buffer_km: float = DEF
             "bounds": None,
             "width_km": 0.0,
             "height_km": 0.0,
-            "status": "As empresas selecionadas nao possuem geometria valida para ROI.",
+            "status": invalid_status,
         }
 
     west, south, east, north = [float(value) for value in farms.total_bounds]
@@ -79,7 +86,7 @@ def build_project_roi(gdf, selected_companies: List[str], buffer_km: float = DEF
         "width_km": width_km,
         "height_km": height_km,
         "buffer_km": float(buffer_km),
-        "status": f"ROI calculada pelas empresas selecionadas com buffer de {buffer_km:.0f} km: {width_km:.1f} x {height_km:.1f} km.",
+        "status": f"ROI calculada {roi_subject} com buffer de {buffer_km:.0f} km: {width_km:.1f} x {height_km:.1f} km.",
     }
 
 

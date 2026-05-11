@@ -57,6 +57,47 @@ DEFAULT_GEE_INDICATORS = [
 ]
 
 
+def companies_from_gdf(gdf) -> List[str]:
+    if gdf is None or gdf.empty or "EMPRESA" not in gdf.columns:
+        return []
+    return sorted(
+        {
+            str(value).strip()
+            for value in gdf["EMPRESA"].dropna().unique()
+            if str(value).strip()
+        }
+    )
+
+
+def _available_company_selection(values, companies: List[str]) -> List[str]:
+    available = set(companies)
+    selected = []
+    for value in values or []:
+        company = str(value).strip()
+        if company and company in available and company not in selected:
+            selected.append(company)
+    return selected
+
+
+def sync_company_selection_state(companies: List[str]) -> List[str]:
+    current = _available_company_selection(st.session_state.get("selected_companies", []), companies)
+    pending = _available_company_selection(st.session_state.get("pending_selected_companies", current), companies)
+
+    if len(companies) == 1:
+        current = current or companies.copy()
+        pending = pending or current.copy()
+        st.session_state[f"company_{companies[0]}"] = True
+
+    st.session_state["selected_companies"] = current
+    st.session_state["pending_selected_companies"] = pending
+    if "applied_company_selection" in st.session_state:
+        st.session_state["applied_company_selection"] = _available_company_selection(
+            st.session_state.get("applied_company_selection", []),
+            companies,
+        )
+    return current
+
+
 def auto_refresh_clock_now() -> datetime:
     return datetime.now(LOCAL_TZ).replace(microsecond=0)
 
@@ -238,14 +279,26 @@ def render_datetime_tab() -> None:
 
 
 def render_project_tab(gdf) -> List[str]:
-    st.markdown("### Empresas")
-    companies = sorted(str(value).strip() for value in gdf["EMPRESA"].dropna().unique())
-    current = set(st.session_state.get("selected_companies", []))
+    companies = companies_from_gdf(gdf)
+    current = set(sync_company_selection_state(companies))
     selected = []
-    st.caption("Marque as empresas do projeto. O processamento ocorre no botao Aplicar abaixo da secao GE.")
-    for company in companies:
-        if st.checkbox(company, value=company in current, key=f"company_{company}"):
-            selected.append(company)
+    st.markdown("### Empresas")
+    if not companies:
+        st.warning("Nenhuma empresa encontrada no campo EMPRESA do shapefile.")
+    else:
+        if len(companies) == 1:
+            st.caption("O shapefile possui uma unica empresa; ela vem marcada para o processamento.")
+        else:
+            st.caption("Marque as empresas do projeto. O processamento ocorre no botao Aplicar abaixo da secao GE.")
+        for company in companies:
+            checked = st.checkbox(
+                company,
+                value=company in current,
+                key=f"company_{company}",
+                disabled=len(companies) == 1,
+            )
+            if checked:
+                selected.append(company)
     st.session_state["pending_selected_companies"] = selected
     st.session_state["show_original_polygons"] = st.checkbox(
         "Exibir poligonos sem simplificacao",
@@ -378,7 +431,7 @@ def apply_fire_risk_and_goes(
         return
     if not roi:
         if show_feedback:
-            st.warning("Selecione uma empresa antes de aplicar a ROI.")
+            st.warning("Aplique a empresa do projeto antes de calcular a ROI.")
         return
 
     reference_query, risk_reference_iso = _analysis_reference_payload()
@@ -523,10 +576,12 @@ def render_gee_tab(gdf) -> None:
         st.caption(SATELLITE_DESCRIPTIONS.get(name, SATELLITE_OPTIONS[name]))
     st.session_state["gee_indicators"] = selected
 
-    st.caption("O Aplicar calcula uma ROI unica a partir das empresas selecionadas, com buffer de 30 km.")
+    companies = companies_from_gdf(gdf)
+    company_scope = "da empresa do projeto" if len(companies) == 1 else "das empresas selecionadas"
+    st.caption(f"O Aplicar calcula uma ROI unica a partir {company_scope}, com buffer de 30 km.")
 
     if st.session_state.get("gee_roi"):
-        st.caption("ROI atual: envelope das empresas selecionadas com buffer de 30 km.")
+        st.caption(f"ROI atual: envelope {company_scope} com buffer de 30 km.")
     if st.session_state.get("last_goes_time"):
         st.caption(f"Ultima imagem GOES: {st.session_state['last_goes_time']}")
     if st.session_state.get("fire_risk_status"):
@@ -800,6 +855,7 @@ def render_company_tab() -> None:
 
 
 def render_sidebar(gdf) -> Tuple[List[str], float]:
+    sync_company_selection_state(companies_from_gdf(gdf))
     with st.sidebar:
         st.markdown("## Empresa / GE")
         with st.expander("Data e hora", expanded=True):

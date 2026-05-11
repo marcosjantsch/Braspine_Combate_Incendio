@@ -36,16 +36,17 @@ def render_technical_log(selected_companies) -> None:
     st.subheader("Log Técnico")
     cols = st.columns(2)
     with cols[0]:
-        st.metric("Empresas", len(selected_companies))
+        st.metric("Empresa" if len(selected_companies) == 1 else "Empresas", len(selected_companies))
     with cols[1]:
         st.metric("Camadas GE", len(st.session_state.get("gee_applied_indicators", [])))
 
     stage_cols = st.columns(2)
     with stage_cols[0]:
         st.markdown("#### 1. Configurar")
-        st.caption("Selecione empresas e aplique camadas GE no menu lateral.")
+        st.caption("Confirme a empresa do projeto e aplique camadas GE no menu lateral.")
         if selected_companies:
-            st.success("Projeto com empresas selecionadas.")
+            status = "Projeto com empresa ativa." if len(selected_companies) == 1 else "Projeto com empresas selecionadas."
+            st.success(status)
         else:
             st.info("Nenhuma empresa selecionada.")
     with stage_cols[1]:
@@ -57,7 +58,7 @@ def render_technical_log(selected_companies) -> None:
             st.info("Camadas GE ainda nao aplicadas.")
 
     if selected_companies:
-        st.markdown("#### Empresas ativas")
+        st.markdown("#### Empresa ativa" if len(selected_companies) == 1 else "#### Empresas ativas")
         st.dataframe({"Empresa": selected_companies}, use_container_width=True, hide_index=True)
     if st.session_state.get("fire_risk_status"):
         st.info(st.session_state["fire_risk_status"])
@@ -593,8 +594,13 @@ def main() -> None:
 
     action_cols = st.columns([0.78, 0.12, 0.10])
     with action_cols[0]:
+        company_label = (
+            f"Empresa ativa: {selected_companies[0]}"
+            if len(selected_companies) == 1
+            else f"Empresas selecionadas: {len(selected_companies)}"
+        )
         st.caption(
-            f"Empresas selecionadas: {len(selected_companies)} | "
+            f"{company_label} | "
             f"Camadas GE aplicadas: {len(st.session_state.get('gee_applied_indicators', []))}"
         )
     with action_cols[2]:
