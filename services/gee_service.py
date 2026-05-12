@@ -10,7 +10,7 @@ from typing import Dict, List, Tuple
 import streamlit as st
 
 from core.auth_service import load_auth_config
-from core.config import AUTH_CONFIG_PATH, BASE_DIR, DEFAULT_EE_PROJECT, GEO_PATH, SATELLITE_OPTIONS
+from core.config import APP_ENVIRONMENT, AUTH_CONFIG_PATH, BASE_DIR, DEFAULT_EE_PROJECT, GEO_PATH, SATELLITE_OPTIONS
 from core.time_context import format_datetime_brasilia, format_period_brasilia
 
 try:
@@ -102,6 +102,7 @@ def gee_diagnostics() -> Dict[str, object]:
     )
     local_user_credentials = Path.home() / ".config" / "earthengine" / "credentials"
     return {
+        "app_environment": APP_ENVIRONMENT,
         "earthengine_module_available": ee is not None,
         "project": earth_engine_project(),
         "credentials_path": credential_path,

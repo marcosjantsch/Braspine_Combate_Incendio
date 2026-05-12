@@ -56,6 +56,9 @@ DEFAULT_GEE_INDICATORS = [
     "NOAA HMS Smoke",
     "CAMS aerossois/fumaca",
 ]
+AUTO_REFRESH_INTERVAL_SECONDS = 15 * 60
+AUTO_REFRESH_INTERVAL_MS = AUTO_REFRESH_INTERVAL_SECONDS * 1000
+AUTO_REFRESH_INTERVAL_LABEL = "15 minutos"
 
 
 def auto_refresh_clock_now() -> datetime:
@@ -277,12 +280,12 @@ def render_auto_refresh_countdown() -> None:
         f"""
         <div class="fire-refresh-card">
             <div class="fire-refresh-label">Proxima atualizacao operacional</div>
-            <div class="fire-refresh-count" id="fire-refresh-count">05:00</div>
+            <div class="fire-refresh-count" id="fire-refresh-count">15:00</div>
             <div class="fire-refresh-note" id="fire-refresh-note">{status}</div>
         </div>
         <script>
         const lastRefresh = new Date("{last_value}").getTime();
-        const intervalMs = 300000;
+        const intervalMs = {AUTO_REFRESH_INTERVAL_MS};
         const countEl = document.getElementById("fire-refresh-count");
         const noteEl = document.getElementById("fire-refresh-note");
         function pad(value) {{
@@ -356,13 +359,13 @@ def render_datetime_tab() -> None:
         st.session_state["analysis_datetime_iso"] = current_dt.isoformat()
         st.caption(f"Referencia atual: {format_datetime_brasilia(current_dt)} | {format_datetime_zulu(current_dt)}")
         st.checkbox(
-            "Atualizar automaticamente a cada 5 minutos",
+            f"Atualizar automaticamente a cada {AUTO_REFRESH_INTERVAL_LABEL}",
             value=st.session_state.get("auto_refresh_current_datetime", False),
             key="auto_refresh_current_datetime",
-            help="Quando ativo, a ROI aplicada e as camadas selecionadas sao recalculadas a cada 5 minutos.",
+            help=f"Quando ativo, a ROI aplicada e as camadas selecionadas sao recalculadas a cada {AUTO_REFRESH_INTERVAL_LABEL}.",
         )
         if st.session_state.get("auto_refresh_current_datetime"):
-            st.caption("Atualizacao automatica ativa: as consultas aplicadas serao refeitas a cada 5 minutos.")
+            st.caption(f"Atualizacao automatica ativa: as consultas aplicadas serao refeitas a cada {AUTO_REFRESH_INTERVAL_LABEL}.")
             render_auto_refresh_countdown()
         return
 
@@ -702,7 +705,7 @@ def maybe_auto_refresh_analysis(gdf) -> bool:
     if last_value:
         try:
             elapsed = (now - datetime.fromisoformat(last_value)).total_seconds()
-            if elapsed < 300:
+            if elapsed < AUTO_REFRESH_INTERVAL_SECONDS:
                 return False
         except Exception:
             pass

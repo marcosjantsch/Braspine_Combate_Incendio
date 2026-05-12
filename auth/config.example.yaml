@@ -10,7 +10,7 @@ credentials:
       password: "$2b$12$replace_this_with_a_real_bcrypt_hash"
 
 earth_engine:
-  project: "braspine"
+  project: "streamelit"
   # Optional. Prefer mounting this file in Docker instead of baking it into the image.
   service_account_email: ""
   service_account_file: ""

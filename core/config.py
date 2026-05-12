@@ -4,25 +4,85 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-APP_TITLE = "Braspine Plataforma de Auxílio ao Combate a Incêndios Florestais"
-APP_VERSION = "1.0"
-APP_VERSION_UPDATED_AT = "11/05/2026 16:20:46"
 BASE_DIR = Path(__file__).resolve().parents[1]
+
+
+ENVIRONMENT_PROFILES = {
+    "streamelit": {
+        "aliases": {"streamelit", "streamlit", "coldroom", "cloudrun", "avant", "gfp"},
+        "title": "Avant Plataforma de Auxílio de Combate a Incêndios Florestais",
+        "ee_project": "streamelit",
+        "asset_fazendas_gee": "projects/streamelit/assets/GFP/Base_GFP_Brasil_Dezembro_2025_geolimits",
+    },
+    "braspine": {
+        "aliases": {"braspine", "braspineincendio"},
+        "title": "Braspine Plataforma de Auxílio de Combate a Incêndios Florestais",
+        "ee_project": "braspine",
+        "asset_fazendas_gee": "projects/braspine/assets/GFP/Base_GFP_Brasil_Dezembro_2025_geolimits",
+    },
+}
+
+
+def _normalize_environment(value: str | None) -> str:
+    candidate = str(value or "").strip().lower().replace("-", "").replace("_", "").replace(" ", "")
+    for environment, profile in ENVIRONMENT_PROFILES.items():
+        aliases = {environment, *profile["aliases"]}
+        if candidate in aliases or any(alias and alias in candidate for alias in aliases):
+            return environment
+    return ""
+
+
+def _detect_environment() -> str:
+    explicit = (
+        os.getenv("APP_ENV")
+        or os.getenv("GFP_ENV")
+        or os.getenv("APP_PROFILE")
+        or os.getenv("GFP_PROFILE")
+        or os.getenv("CLIENT_ENV")
+    )
+    environment = _normalize_environment(explicit)
+    if environment:
+        return environment
+
+    project_environment = _normalize_environment(os.getenv("EE_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT"))
+    if project_environment:
+        return project_environment
+
+    folder_hint = _normalize_environment(BASE_DIR.name)
+    if folder_hint:
+        return folder_hint
+
+    parent_hint = _normalize_environment(BASE_DIR.parent.name)
+    if parent_hint:
+        return parent_hint
+
+    return "streamelit"
+
+
+APP_ENVIRONMENT = _detect_environment()
+APP_PROFILE = ENVIRONMENT_PROFILES[APP_ENVIRONMENT]
+APP_TITLE = APP_PROFILE["title"]
+APP_VERSION = "1.0"
+APP_VERSION_UPDATED_AT = "12/05/2026 11:44:12"
 AUTH_CONFIG_PATH = Path(
     os.getenv("APP_AUTH_CONFIG")
+    or os.getenv(f"{APP_ENVIRONMENT.upper()}_AUTH_CONFIG")
     or os.getenv("CODEBOOK_AUTH_CONFIG")
+    or os.getenv("CLOUDRON_AUTH_CONFIG")
+    or (BASE_DIR / "auth" / f"config.{APP_ENVIRONMENT}.yaml" if (BASE_DIR / "auth" / f"config.{APP_ENVIRONMENT}.yaml").exists() else "")
     or BASE_DIR / "auth" / "config.yaml"
 )
 GEO_PATH = Path(
     os.getenv("APP_GEO_PATH")
+    or os.getenv(f"{APP_ENVIRONMENT.upper()}_GEO_PATH")
     or os.getenv("CODEBOOK_GEO_PATH")
     or os.getenv("CLOUDRON_GEO_PATH")
     or BASE_DIR / "data" / "Geo.shp"
 )
 
 DEFAULT_RANGE_KM = 25.0
-DEFAULT_EE_PROJECT = "braspine"
-ASSET_FAZENDAS_GEE = "projects/braspine/assets/GFP/Base_GFP_Brasil_Dezembro_2025_geolimits"
+DEFAULT_EE_PROJECT = APP_PROFILE["ee_project"]
+ASSET_FAZENDAS_GEE = APP_PROFILE["asset_fazendas_gee"]
 SIMPLIFICATION_TOLERANCE = 0.001
 
 SATELLITE_OPTIONS = {

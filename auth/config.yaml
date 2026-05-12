@@ -148,6 +148,6 @@ preauthorized:
   emails:
   - marcos.jantsch@gmail.com
 earth_engine:
-  project: braspine
+  project: streamelit
   service_account_email: ''
   service_account_file: ''

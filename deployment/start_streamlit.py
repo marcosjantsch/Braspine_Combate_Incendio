@@ -9,6 +9,7 @@ import sys
 def main() -> int:
     port = os.getenv("PORT", "8080").strip() or "8080"
     print(f"[startup] Starting Streamlit on 0.0.0.0:{port}", flush=True)
+    print(f"[startup] APP_ENV={os.getenv('APP_ENV', '')}", flush=True)
     print(f"[startup] APP_AUTH_CONFIG={os.getenv('APP_AUTH_CONFIG', '')}", flush=True)
     print(f"[startup] APP_GEO_PATH={os.getenv('APP_GEO_PATH', '')}", flush=True)
     command = [

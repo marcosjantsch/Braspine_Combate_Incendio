@@ -9,7 +9,13 @@ from typing import Dict
 import streamlit as st
 import streamlit.components.v1 as components
 
-from core.config import APP_TITLE, APP_VERSION, APP_VERSION_UPDATED_AT, BASE_DIR
+from core.config import APP_ENVIRONMENT, APP_TITLE, APP_VERSION, APP_VERSION_UPDATED_AT, BASE_DIR
+
+
+ENVIRONMENT_LABELS = {
+    "streamelit": "GFP",
+    "braspine": "Braspine",
+}
 
 
 def _logo_data_uri() -> str:
@@ -28,8 +34,9 @@ def render_top_header(user: Dict) -> None:
     username = escape(str(user.get("username", "")))
     name = escape(str(user.get("name", "")))
     role = escape(str(user.get("role", "")))
+    environment_label = escape(ENVIRONMENT_LABELS.get(APP_ENVIRONMENT, APP_ENVIRONMENT or "GFP"))
     logo_src = _logo_data_uri()
-    logo_html = f'<img class="fire-logo" src="{logo_src}" alt="Braspine">' if logo_src else ""
+    logo_html = f'<img class="fire-logo" src="{logo_src}" alt="Avante">' if logo_src else ""
     st.markdown(
         f"""
         <div class="fire-header">
@@ -43,7 +50,7 @@ def render_top_header(user: Dict) -> None:
             <div class="fire-session">
                 <strong>Sessao atual</strong><br>
                 Usuario: {name} | Perfil: {role} | Login: {username}<br>
-                Versao: {APP_VERSION} | Atualizacao: {APP_VERSION_UPDATED_AT}
+                Ambiente: {environment_label} | Versao: {APP_VERSION} | Atualizacao: {APP_VERSION_UPDATED_AT}
             </div>
         </div>
         """,
@@ -55,7 +62,7 @@ def render_top_header(user: Dict) -> None:
             <div>
                 <strong>Sessao atual</strong>
                 <span>Usuario: {name} | Login: {username}</span>
-                <span>Versao: {APP_VERSION} | Atualizacao: {APP_VERSION_UPDATED_AT}</span>
+                <span>Ambiente: {environment_label} | Versao: {APP_VERSION} | Atualizacao: {APP_VERSION_UPDATED_AT}</span>
             </div>
             <div class="fire-session-clock">
                 Tempo aberto: <strong id="session-elapsed">00:00:00</strong>
