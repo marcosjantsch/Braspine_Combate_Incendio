@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import os
@@ -10,13 +10,13 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 ENVIRONMENT_PROFILES = {
     "streamelit": {
         "aliases": {"streamelit", "streamlit", "coldroom", "cloudrun", "avant", "gfp"},
-        "title": "Avant Plataforma de Auxílio de Combate a Incêndios Florestais",
+        "title": "Avant Plataforma de AuxÃ­lio de Combate a IncÃªndios Florestais",
         "ee_project": "streamelit",
         "asset_fazendas_gee": "projects/streamelit/assets/GFP/Base_GFP_Brasil_Dezembro_2025_geolimits",
     },
     "braspine": {
         "aliases": {"braspine", "braspineincendio"},
-        "title": "Braspine Plataforma de Auxílio de Combate a Incêndios Florestais",
+        "title": "Braspine Plataforma de AuxÃ­lio de Combate a IncÃªndios Florestais",
         "ee_project": "braspine",
         "asset_fazendas_gee": "projects/braspine/assets/GFP/Base_GFP_Brasil_Dezembro_2025_geolimits",
     },
@@ -39,6 +39,11 @@ def _detect_environment() -> str:
         or os.getenv("APP_PROFILE")
         or os.getenv("GFP_PROFILE")
         or os.getenv("CLIENT_ENV")
+        or os.getenv("K_SERVICE")
+        or os.getenv("K_CONFIGURATION")
+        or os.getenv("K_REVISION")
+        or os.getenv("CLOUD_RUN_SERVICE")
+        or os.getenv("SERVICE_NAME")
     )
     environment = _normalize_environment(explicit)
     if environment:
@@ -62,8 +67,8 @@ def _detect_environment() -> str:
 APP_ENVIRONMENT = _detect_environment()
 APP_PROFILE = ENVIRONMENT_PROFILES[APP_ENVIRONMENT]
 APP_TITLE = APP_PROFILE["title"]
-APP_VERSION = "1.0"
-APP_VERSION_UPDATED_AT = "12/05/2026 11:44:12"
+APP_VERSION = "1.1"
+APP_VERSION_UPDATED_AT = "12/05/2026 13:45:18"
 AUTH_CONFIG_PATH = Path(
     os.getenv("APP_AUTH_CONFIG")
     or os.getenv(f"{APP_ENVIRONMENT.upper()}_AUTH_CONFIG")

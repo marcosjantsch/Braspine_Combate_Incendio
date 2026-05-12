@@ -733,6 +733,31 @@ def render_day_detection_points_tab() -> None:
             st.dataframe(logs, use_container_width=True, hide_index=True)
 
 
+def render_satellite_technical_data_tab() -> None:
+    st.subheader("Dados técnicos de satélite")
+    st.caption(
+        "Referência operacional para fumaça, focos de calor, aerossóis e contexto ambiental. "
+        "Os horários abaixo estão em Brasília e são aproximados para Sul do Brasil, Mato Grosso, Minas Gerais e sul de São Paulo."
+    )
+    st.info(
+        "Regra automática: ao iniciar/aplicar a sessão, a consulta é completa. Depois, a cada 15 minutos, "
+        "GOES é reconsultado sempre; os satélites orbitais são reconsultados apenas nas janelas 09:50-11:50 e 13:20-15:10."
+    )
+    rows = [
+        {"Fonte": "GOES-16 / GOES-19 ABI", "Tipo": "Geoestacionário", "Uso operacional": "Fumaça visível, nuvens, temperatura de brilho e hotspot GOES/FDCF", "Janela em Brasília": "Contínuo; atualização operacional a cada 15 min", "Observação": "Melhor fonte para acompanhamento visual quase em tempo real durante o dia."},
+        {"Fonte": "NOAA HMS Smoke", "Tipo": "Análise operacional diária", "Uso operacional": "Polígonos de fumaça e plumas", "Janela em Brasília": "Produto diário; reconsulta nas janelas orbitais", "Observação": "Não confirma foco sozinho, mas agrava o contexto operacional."},
+        {"Fonte": "Terra MODIS", "Tipo": "Polar / passagem diurna", "Uso operacional": "Fumaça, aerossol, focos MODIS e anomalias térmicas", "Janela em Brasília": "09:50-11:50", "Observação": "Passagem nominal próxima de 10:30 hora solar local."},
+        {"Fonte": "Aqua MODIS", "Tipo": "Polar / passagem diurna", "Uso operacional": "Fumaça, aerossol, focos MODIS e anomalias térmicas", "Janela em Brasília": "13:20-15:10", "Observação": "Passagem nominal próxima de 13:30 hora solar local."},
+        {"Fonte": "Suomi NPP / NOAA-20 / NOAA-21 VIIRS", "Tipo": "Polar / passagem diurna e noturna", "Uso operacional": "Hotspots 375 m, fumaça visual e focos ativos", "Janela em Brasília": "13:20-15:10; madrugada quando houver produto noturno", "Observação": "Prioritário para focos menores e cálculo de distância."},
+        {"Fonte": "Sentinel-5P TROPOMI / CAMS", "Tipo": "Polar / atmosférico", "Uso operacional": "Índice de aerossóis, fumaça, PM2.5 e contexto atmosférico", "Janela em Brasília": "13:20-15:10", "Observação": "Contexto de fumaça/aerossóis; não é hotspot."},
+        {"Fonte": "Sentinel-3 OLCI/SLSTR", "Tipo": "Polar / visual e termal", "Uso operacional": "Fumaça visual, termal e apoio a anomalias", "Janela em Brasília": "09:50-11:50", "Observação": "Passagem nominal próxima de 10:00 hora solar local."},
+        {"Fonte": "Sentinel-2", "Tipo": "Polar / óptico", "Uso operacional": "Fumaça visível, NDVI/NBR, vegetação e cicatriz de queimada", "Janela em Brasília": "09:50-11:50", "Observação": "Alta resolução, mas não é produto operacional contínuo."},
+        {"Fonte": "Landsat 8/9", "Tipo": "Polar / óptico-termal", "Uso operacional": "Termal, fumaça contextual e pós-incêndio", "Janela em Brasília": "09:50-11:50", "Observação": "Baixa frequência de revisita; útil para análise e contexto."},
+        {"Fonte": "ERA5 Land / ECMWF FWI / SMAP", "Tipo": "Climático e ambiental", "Uso operacional": "Risco climático, umidade, vento, precipitação e condição de combustível", "Janela em Brasília": "Consulta por data de análise", "Observação": "Compõe risco e contexto, mas não detecta foco ativo sozinho."},
+    ]
+    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+
 def main() -> None:
     apply_styles()
     user = require_authentication()
@@ -764,6 +789,7 @@ def main() -> None:
     main_tabs = [
         "Mapa Operacional",
         "Pontos de detecção do dia",
+        "Dados técnicos de satélite",
         "Previsao do Tempo",
         "Tendencia Climatica",
         "Log Técnico",
@@ -790,6 +816,8 @@ def main() -> None:
         render_auto_refresh_beep()
     elif main_tab == "Pontos de detecção do dia":
         render_day_detection_points_tab()
+    elif main_tab == "Dados técnicos de satélite":
+        render_satellite_technical_data_tab()
     elif main_tab == "Previsao do Tempo":
         render_weather_forecast_tab()
     elif main_tab == "Tendencia Climatica":

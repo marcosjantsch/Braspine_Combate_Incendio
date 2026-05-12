@@ -36,11 +36,11 @@ def earth_engine_project() -> str:
     settings = earth_engine_settings()
     return (
         os.getenv("EE_PROJECT")
+        or DEFAULT_EE_PROJECT
+        or settings.get("project")
         or os.getenv("GOOGLE_CLOUD_PROJECT")
         or os.getenv("GCP_PROJECT")
         or os.getenv("GCLOUD_PROJECT")
-        or settings.get("project")
-        or DEFAULT_EE_PROJECT
         or ""
     ).strip()
 

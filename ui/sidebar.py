@@ -59,10 +59,111 @@ DEFAULT_GEE_INDICATORS = [
 AUTO_REFRESH_INTERVAL_SECONDS = 15 * 60
 AUTO_REFRESH_INTERVAL_MS = AUTO_REFRESH_INTERVAL_SECONDS * 1000
 AUTO_REFRESH_INTERVAL_LABEL = "15 minutos"
+ORBITAL_REFRESH_WINDOWS = [
+    (time(9, 50), time(11, 50)),
+    (time(13, 20), time(15, 10)),
+]
+ORBITAL_WINDOW_LABEL = "09:50-11:50 e 13:20-15:10"
+ORBITAL_REFRESH_CHECKPOINTS = [time(9, 50), time(11, 50), time(13, 20), time(15, 10)]
+ORBITAL_REFRESH_INDICATORS = {
+    "FIRMS MODIS",
+    "VIIRS 375 m",
+    "NASA GIBS Hotspots",
+    "MODIS Terra FireMask",
+    "MODIS Burned Area",
+    "NOAA HMS Smoke",
+    "CAMS aerossois/fumaca",
+    "Sentinel-3 SLSTR",
+    "Landsat Collection 2 Thermal",
+    "Sentinel-2 NDVI/NBR",
+    "ERA5 Land",
+    "ECMWF Fire Weather Index",
+    "GOES GLM Lightning",
+    "SMAP umidade do solo",
+}
 
 
 def auto_refresh_clock_now() -> datetime:
     return datetime.now(LOCAL_TZ).replace(microsecond=0)
+
+
+def is_orbital_refresh_window(moment: datetime | None = None) -> bool:
+    current_time = (moment or auto_refresh_clock_now()).astimezone(LOCAL_TZ).time()
+    return any(start <= current_time <= end for start, end in ORBITAL_REFRESH_WINDOWS)
+
+
+def orbital_checkpoint_due(moment: datetime) -> str:
+    current = moment.astimezone(LOCAL_TZ)
+    last_checkpoint = st.session_state.get("last_orbital_checkpoint")
+    due_checkpoint = ""
+    for checkpoint in ORBITAL_REFRESH_CHECKPOINTS:
+        checkpoint_dt = current.replace(
+            hour=checkpoint.hour,
+            minute=checkpoint.minute,
+            second=0,
+            microsecond=0,
+        )
+        checkpoint_id = checkpoint_dt.strftime("%Y-%m-%d %H:%M")
+        if current >= checkpoint_dt:
+            due_checkpoint = checkpoint_id
+    if due_checkpoint and due_checkpoint != last_checkpoint:
+        return due_checkpoint
+    return ""
+
+
+def orbital_sources_found(source_results: list[dict]) -> bool:
+    for result in source_results or []:
+        source = result.get("source", {})
+        if source.get("label") in ORBITAL_REFRESH_INDICATORS and result.get("status") == "plotado" and int(result.get("count", 0) or 0) > 0:
+            return True
+    return False
+
+
+def update_satellite_last_image_log(source_results: list[dict], only_orbital: bool = False) -> bool:
+    log = dict(st.session_state.get("satellite_last_image_log", {}))
+    changed = False
+    for result in source_results or []:
+        source = result.get("source", {})
+        label = str(source.get("label") or result.get("source_key") or "").strip()
+        if not label:
+            continue
+        if only_orbital and label not in ORBITAL_REFRESH_INDICATORS:
+            continue
+        if result.get("status") != "plotado" or int(result.get("count", 0) or 0) <= 0:
+            continue
+        signature = {
+            "image_datetime": result.get("image_datetime") or "",
+            "count": int(result.get("count", 0) or 0),
+            "updated_at": auto_refresh_clock_now().isoformat(),
+        }
+        previous = log.get(label, {})
+        if previous.get("image_datetime") != signature["image_datetime"] or previous.get("count") != signature["count"]:
+            changed = True
+            log[label] = signature
+    st.session_state["satellite_last_image_log"] = log
+    return changed
+
+
+def scheduled_auto_refresh_indicators(applied_indicators: List[str], moment: datetime) -> tuple[List[str], str]:
+    applied = list(dict.fromkeys(applied_indicators or []))
+    if not st.session_state.get("auto_refresh_full_satellite_query_done"):
+        return applied, "Consulta automatica inicial da sessao: todas as camadas aplicadas foram reconsultadas."
+
+    selected_goes = [name for name in applied if name in GOES_INDICATORS]
+    selected_orbital = [name for name in applied if name in ORBITAL_REFRESH_INDICATORS]
+    checkpoint_id = orbital_checkpoint_due(moment)
+    pending_checkpoint = st.session_state.get("pending_orbital_checkpoint")
+    if checkpoint_id and selected_orbital:
+        st.session_state["pending_orbital_checkpoint"] = checkpoint_id
+        st.session_state["last_orbital_checkpoint"] = checkpoint_id
+        pending_checkpoint = checkpoint_id
+
+    if pending_checkpoint:
+        selected = list(dict.fromkeys([*selected_goes, *selected_orbital]))
+        return selected, f"Consulta orbital pendente desde {pending_checkpoint}; GOES e satelites de passagem foram reconsultados."
+
+    selected = selected_goes
+    return selected, f"Fora dos horarios orbitais programados ({ORBITAL_WINDOW_LABEL}); apenas camadas GOES foram reconsultadas."
 
 
 def _roi_center_from_bounds(bounds) -> tuple[float, float] | None:
@@ -422,6 +523,8 @@ def apply_sidebar_selection(gdf, selected_companies: List[str], selected_indicat
         st.session_state["viewport_fit_bounds"] = roi_result["bounds"]
         st.session_state["fit_viewport_on_next_map"] = True
         st.session_state["last_auto_analysis_refresh"] = auto_refresh_clock_now().isoformat()
+        st.session_state["auto_refresh_full_satellite_query_done"] = True
+        st.session_state.pop("pending_orbital_checkpoint", None)
         apply_fire_risk_and_goes(
             selected_indicators,
             roi_result=roi_result,
@@ -562,11 +665,13 @@ def apply_fire_risk_and_goes(
     gdf=None,
     selected_companies=None,
     show_feedback: bool = True,
+    record_applied_indicators: bool = True,
 ) -> None:
     roi = (roi_result or {}).get("geojson") or current_map_roi()
     roi_bounds = (roi_result or {}).get("bounds") or st.session_state.get("roi_bounds")
     applied_indicators = list(dict.fromkeys(selected))
-    st.session_state["gee_applied_indicators"] = applied_indicators
+    if record_applied_indicators:
+        st.session_state["gee_applied_indicators"] = applied_indicators
     st.session_state["gee_roi"] = roi
     st.session_state["roi_ee"] = roi
     st.session_state["roi_bounds"] = roi_bounds
@@ -604,6 +709,10 @@ def apply_fire_risk_and_goes(
         roi,
         reference_query,
         active_fire_window_hours=active_fire_window_hours,
+    )
+    st.session_state["last_source_bundle_had_new_orbital_data"] = update_satellite_last_image_log(
+        source_bundle.get("results", []),
+        only_orbital=True,
     )
     source_layers = source_bundle["layers"]
     st.session_state["gee_tile_layers"] = source_layers
@@ -710,6 +819,17 @@ def maybe_auto_refresh_analysis(gdf) -> bool:
         except Exception:
             pass
 
+    scheduled_indicators, schedule_status = scheduled_auto_refresh_indicators(applied_indicators, now)
+    if not scheduled_indicators:
+        finished_at = auto_refresh_clock_now()
+        st.session_state["last_auto_analysis_refresh"] = finished_at.isoformat()
+        st.session_state["last_auto_analysis_status"] = (
+            f"{schedule_status} Nenhuma camada elegivel estava selecionada. "
+            f"Proxima verificacao em {AUTO_REFRESH_INTERVAL_LABEL}."
+        )
+        st.session_state["auto_refresh_beep_pending"] = finished_at.isoformat()
+        return True
+
     roi_result = build_project_roi(gdf, selected_companies)
     st.session_state["project_roi_result"] = roi_result
     st.session_state["roi_limit_status"] = roi_result["status"]
@@ -718,16 +838,32 @@ def maybe_auto_refresh_analysis(gdf) -> bool:
     st.session_state["viewport_fit_bounds"] = roi_result["bounds"]
     st.session_state["fit_viewport_on_next_map"] = True
     apply_fire_risk_and_goes(
-        applied_indicators,
+        scheduled_indicators,
         roi_result=roi_result,
         gdf=gdf,
         selected_companies=selected_companies,
         show_feedback=False,
+        record_applied_indicators=False,
     )
     apply_manual_coordinate_analysis(gdf, selected_companies, show_feedback=False)
     finished_at = auto_refresh_clock_now()
     st.session_state["last_auto_analysis_refresh"] = finished_at.isoformat()
-    st.session_state["last_auto_analysis_status"] = f"Atualizacao automatica concluida em {format_datetime_brasilia(finished_at)}."
+    st.session_state["auto_refresh_full_satellite_query_done"] = True
+    if st.session_state.get("pending_orbital_checkpoint"):
+        has_orbital_data = orbital_sources_found(st.session_state.get("source_results", []))
+        has_new_orbital_data = bool(st.session_state.get("last_source_bundle_had_new_orbital_data"))
+        if has_orbital_data and has_new_orbital_data:
+            st.session_state["last_orbital_image_found_at"] = finished_at.isoformat()
+            st.session_state["last_orbital_image_checkpoint"] = st.session_state.get("pending_orbital_checkpoint")
+            st.session_state.pop("pending_orbital_checkpoint", None)
+            schedule_status += " Imagem orbital encontrada; proxima tentativa ficara para o proximo horario programado."
+        elif has_orbital_data:
+            schedule_status += " A consulta retornou dado orbital ja registrado; a tentativa continuara ate aparecer imagem nova."
+        else:
+            schedule_status += " Nenhuma imagem orbital nova foi encontrada; a tentativa continuara no proximo ciclo de 15 minutos."
+    st.session_state["last_auto_analysis_status"] = (
+        f"Atualizacao automatica concluida em {format_datetime_brasilia(finished_at)}. {schedule_status}"
+    )
     st.session_state["auto_refresh_beep_pending"] = finished_at.isoformat()
     return True
 
