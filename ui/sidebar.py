@@ -37,7 +37,7 @@ from services.fire_sources_service import (
     fetch_selected_sources,
     classify_alert_level,
 )
-from services.weather_service import fetch_weather_window
+from services.weather_service import fetch_weather_window, weather_code_label
 
 
 RISK_INDICATOR = "Risco de incendio florestal"
@@ -175,12 +175,49 @@ def _roi_center_from_bounds(bounds) -> tuple[float, float] | None:
         return None
 
 
+def _context_value(values: list, index: int):
+    return values[index] if index < len(values) else None
+
+
+def _context_float(values: list, index: int) -> float | None:
+    value = _context_value(values, index)
+    try:
+        return float(value)
+    except Exception:
+        return None
+
+
+def _weather_condition_label(weather_code, cloud_cover, precipitation, humidity) -> str:
+    label = weather_code_label(weather_code)
+    if label and label != "-":
+        if label == "Ceu limpo":
+            return "Ensolarado"
+        return label
+
+    if precipitation is not None and precipitation > 0.2:
+        return "Chovendo"
+    if humidity is not None and humidity >= 95 and (cloud_cover is None or cloud_cover >= 50):
+        return "Neblina"
+    if cloud_cover is not None and cloud_cover >= 80:
+        return "Nublado"
+    if cloud_cover is not None and cloud_cover >= 35:
+        return "Parcialmente nublado"
+    if cloud_cover is not None:
+        return "Ensolarado"
+    return "-"
+
+
 @st.cache_data(ttl=900, show_spinner=False)
 def _cached_wind_context(lat: float, lon: float, reference_local_iso: str) -> dict:
     reference = datetime.fromisoformat(reference_local_iso)
     payload = fetch_weather_window(float(lat), float(lon), reference.date(), days=1)
     hourly = payload.get("hourly") or {}
     times = hourly.get("time") or []
+    temperatures = hourly.get("temperature_2m") or []
+    weather_codes = hourly.get("weather_code") or []
+    cloud_covers = hourly.get("cloud_cover") or []
+    precipitations = hourly.get("precipitation") or []
+    humidities = hourly.get("relative_humidity_2m") or []
     speeds = hourly.get("wind_speed_10m") or []
     directions = hourly.get("wind_direction_10m") or []
     if not times:
@@ -198,9 +235,20 @@ def _cached_wind_context(lat: float, lon: float, reference_local_iso: str) -> di
             best_delta = delta
             best_index = idx
 
-    speed = speeds[best_index] if best_index < len(speeds) else None
-    direction = directions[best_index] if best_index < len(directions) else None
+    speed = _context_value(speeds, best_index)
+    direction = _context_value(directions, best_index)
+    temperature = _context_value(temperatures, best_index)
+    weather_code = _context_value(weather_codes, best_index)
+    cloud_cover = _context_float(cloud_covers, best_index)
+    precipitation = _context_float(precipitations, best_index)
+    humidity = _context_float(humidities, best_index)
     return {
+        "temperature_c": temperature,
+        "weather_code": weather_code,
+        "weather_condition": _weather_condition_label(weather_code, cloud_cover, precipitation, humidity),
+        "cloud_cover_pct": cloud_cover,
+        "precipitation_mm": precipitation,
+        "humidity_pct": humidity,
         "speed_kmh": speed,
         "direction_deg": direction,
         "time": times[best_index],

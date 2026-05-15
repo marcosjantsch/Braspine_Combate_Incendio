@@ -544,6 +544,17 @@ def render_fire_detection_panel(gdf, selected_companies) -> None:
     st.markdown("### Risco de incêndios florestais para as fazendas selecionadas")
     st.caption(f"Fazendas selecionadas: {selected_farms_label(gdf, selected_companies)}")
     st.caption(f"Data e hora da análise: {st.session_state.get('analysis_reference_label', '-')}")
+    wind_context = summary.get("wind_context") or {}
+    if wind_context:
+        temp = wind_context.get("temperature_c")
+        speed = wind_context.get("speed_kmh")
+        direction = wind_context.get("direction_deg")
+        condition = wind_context.get("weather_condition", "-")
+        met_cols = st.columns(4)
+        met_cols[0].metric("Temperatura aprox. ROI", f"{float(temp):.1f} graus C" if temp not in (None, "") else "-")
+        met_cols[1].metric("Condicao do tempo", str(condition or "-"))
+        met_cols[2].metric("Direcao do vento", f"{float(direction):.0f} graus" if direction not in (None, "") else "-")
+        met_cols[3].metric("Velocidade do vento", f"{float(speed):.1f} km/h" if speed not in (None, "") else "-")
     day_points_total = int(st.session_state.get("day_detection_points_total", 0) or 0)
     day_period = st.session_state.get("day_detection_period", "")
     if day_points_total:
@@ -553,6 +564,15 @@ def render_fire_detection_panel(gdf, selected_companies) -> None:
         )
         if day_period:
             st.caption(f"Periodo da consulta diaria: {day_period}")
+    st.checkbox(
+        "Plotar todos os pontos de deteccao no mapa",
+        value=st.session_state.get("show_all_detection_points", False),
+        key="show_all_detection_points",
+        help=(
+            "Quando ligado, exibe todos os pontos detectados no dia, independente da distancia. "
+            "Quando desligado, exibe apenas os pontos dentro dos padroes de distancia operacional."
+        ),
+    )
     image_rows = st.session_state.get("analysis_image_rows", [])
     if image_rows:
         with st.expander("Imagens e dados usados na análise", expanded=False):
@@ -563,7 +583,6 @@ def render_fire_detection_panel(gdf, selected_companies) -> None:
         st.dataframe(image_rows, use_container_width=True, hide_index=True)
 
     render_siren_alert(summary)
-    wind_context = summary.get("wind_context") or {}
     if wind_context:
         speed = wind_context.get("speed_kmh", "-")
         direction = wind_context.get("direction_deg", "-")

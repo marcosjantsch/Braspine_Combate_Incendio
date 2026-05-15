@@ -195,7 +195,21 @@ def add_geojson_overlay(map_obj: folium.Map, layer: Dict) -> None:
 
 def add_detection_points_to_map(map_obj: folium.Map) -> None:
     summary = st.session_state.get("fire_detection_summary", {})
-    points = summary.get("points", []) if isinstance(summary, dict) else []
+    show_all = bool(st.session_state.get("show_all_detection_points", False))
+    if show_all:
+        points = summary.get("points", []) if isinstance(summary, dict) else []
+    else:
+        points = [
+            {
+                "lat": row.get("latitude_foco"),
+                "lon": row.get("longitude_foco"),
+                "source": row.get("fonte") or row.get("source_key") or "",
+                "source_key": row.get("source_key") or "",
+                "satellite": row.get("satelite") or "",
+                "event_type": row.get("tipo") or "Deteccao operacional",
+            }
+            for row in (summary.get("nearest_farms", []) if isinstance(summary, dict) else [])
+        ]
     if not points:
         return
     colors = {
@@ -207,13 +221,16 @@ def add_detection_points_to_map(map_obj: folium.Map) -> None:
         "GOES": "#c026d3",
         "GOES Hotspot/FDCF": "#c026d3",
         "NASA GIBS Hotspots": "#ff00ff",
+        "NASA GIBS | VIIRS SNPP": "#ff003c",
+        "NASA GIBS | VIIRS NOAA-20": "#ff003c",
         "NASA GIBS VIIRS": "#ff003c",
         "NASA GIBS MODIS": "#ff7a00",
         "INPE Queimadas": "#22c55e",
         "BDQueimadas": "#22c55e",
         "NOAA HMS Smoke": "#64748b",
     }
-    group = folium.FeatureGroup(name="Focos detectados", show=True)
+    group_name = "Focos detectados" if show_all else "Focos dentro dos padroes de distancia"
+    group = folium.FeatureGroup(name=group_name, show=True)
     grouped_points: Dict[str, List[Dict]] = {}
     for point in points:
         grouped_points.setdefault(str(point.get("source_key") or point.get("source") or "fonte"), []).append(point)
@@ -246,6 +263,8 @@ def add_detection_points_to_map(map_obj: folium.Map) -> None:
 
 
 def add_day_detection_points_to_map(map_obj: folium.Map) -> None:
+    if not st.session_state.get("show_all_detection_points", False):
+        return
     points = st.session_state.get("day_detection_points", [])
     if not points:
         return
@@ -257,6 +276,8 @@ def add_day_detection_points_to_map(map_obj: folium.Map) -> None:
         "GOES": "#c026d3",
         "GOES Hotspot/FDCF": "#c026d3",
         "NASA GIBS Hotspots": "#ff00ff",
+        "NASA GIBS | VIIRS SNPP": "#ff003c",
+        "NASA GIBS | VIIRS NOAA-20": "#ff003c",
         "NASA GIBS VIIRS": "#ff003c",
         "NASA GIBS MODIS": "#ff7a00",
         "INPE Queimadas": "#22c55e",
