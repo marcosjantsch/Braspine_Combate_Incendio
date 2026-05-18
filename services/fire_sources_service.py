@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import html
+import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+from xml.etree import ElementTree as ET
 
 import geopandas as gpd
 import pandas as pd
@@ -14,7 +17,7 @@ from shapely.ops import nearest_points
 
 from core.alert_rules import alert_distance_for_uf, table_distance_for_uf
 from core.config import BASE_DIR
-from core.time_context import format_datetime_brasilia, format_datetime_zulu, format_period_brasilia, format_period_zulu
+from core.time_context import LOCAL_TZ, format_datetime_brasilia, format_datetime_zulu, format_period_brasilia, format_period_zulu
 from services.gee_service import build_tile_url, ee, initialize_earth_engine
 
 TEMPORAL_WINDOW_HOURS = 24
@@ -25,6 +28,8 @@ NOAA_HMS_CACHE_DIR = BASE_DIR / "data" / "cache" / "noaa_hms_smoke"
 NASA_GIBS_WMS_URL = "https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi"
 INPE_QUEIMADAS_DAILY_URL = "https://dataserver-coids.inpe.br/queimadas/queimadas/focos/csv/diario/Brasil/focos_diario_br_{day:%Y%m%d}.csv"
 INPE_QUEIMADAS_CACHE_DIR = BASE_DIR / "data" / "cache" / "inpe_queimadas"
+INPE_ACTIVE_EVENTS_KML_URL = "https://dataserver-coids.inpe.br/queimadas/queimadas/eventos/ativos/eventos_ativos.kml"
+INPE_ACTIVE_EVENTS_CACHE_DIR = BASE_DIR / "data" / "cache" / "inpe_eventos_ativos"
 GEOD = Geod(ellps="WGS84")
 WEB_TO_WGS84 = Transformer.from_crs("EPSG:3857", "EPSG:4326", always_xy=True)
 WIND_TOWARDS_FARM_TOLERANCE_DEG = 45.0
@@ -260,6 +265,20 @@ FIRE_DATA_SOURCES: Dict[str, Dict[str, object]] = {
         "satellite": "BDQueimadas",
         "sample_limit": 10000,
     },
+    "inpe_eventos_ativos": {
+        "label": "INPE Eventos Ativos",
+        "name": "INPE Eventos Ativos",
+        "type": "hotspot",
+        "priority": 2,
+        "distance": True,
+        "alert": True,
+        "requires_ee": False,
+        "window_hours": 72,
+        "query": "inpe_eventos_ativos",
+        "event_type": "Evento ativo INPE",
+        "satellite": "Eventos Ativos INPE",
+        "sample_limit": 15000,
+    },
     "noaa_hms_smoke": {"label": "NOAA HMS Smoke", "name": "NOAA HMS Smoke", "type": "fumaca", "priority": 50, "distance": True, "alert": False, "window_hours": ACTIVE_FIRE_WINDOW_HOURS, "query": "noaa_hms_smoke", "requires_ee": False, "event_type": "Fumaca detectada", "satellite": "NOAA HMS"},
     "cams": {"label": "CAMS aerossois/fumaca", "name": "CAMS/Sentinel-5P fumaca e aerossois", "type": "fumaca", "priority": 55, "distance": False, "alert": False, "window_hours": ACTIVE_FIRE_WINDOW_HOURS, "query": "smoke_aerosol_context"},
     "sentinel3_slstr": {"label": "Sentinel-3 SLSTR", "name": "Sentinel-3 SLSTR", "type": "termal", "priority": 36, "distance": False, "alert": False, "window_days": 1, "query": "unconfigured"},
@@ -338,6 +357,24 @@ def _image_time_zulu(image) -> str:
         return format_datetime_zulu(datetime.fromtimestamp(millis / 1000, tz=timezone.utc)) if millis else ""
     except Exception:
         return ""
+
+
+def _detection_time_brasilia(point_data: Dict) -> str:
+    zulu_value = point_data.get("detection_datetime_zulu")
+    local_value = point_data.get("detection_datetime")
+    return format_datetime_brasilia(
+        zulu_value,
+        fallback=format_datetime_brasilia(local_value, fallback=str(local_value or zulu_value or "")),
+    )
+
+
+def _detection_time_zulu(point_data: Dict) -> str:
+    zulu_value = point_data.get("detection_datetime_zulu")
+    local_value = point_data.get("detection_datetime")
+    return format_datetime_zulu(
+        zulu_value,
+        fallback=format_datetime_zulu(local_value, fallback=str(zulu_value or local_value or "")),
+    )
 
 
 def _nearest_image(collection, reference: datetime):
@@ -563,7 +600,7 @@ def _angle_difference(a: float, b: float) -> float:
 def _compass_label(degrees: Optional[float]) -> str:
     if degrees is None:
         return ""
-    labels = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+    labels = ["Norte", "Nordeste", "Leste", "Sudeste", "Sul", "Sudoeste", "Oeste", "Noroeste"]
     index = int((float(degrees) + 22.5) // 45) % 8
     return labels[index]
 
@@ -571,7 +608,7 @@ def _compass_label(degrees: Optional[float]) -> str:
 def _format_wind_direction(degrees: Optional[float]) -> str:
     if degrees is None:
         return ""
-    return f"{float(degrees) % 360:.0f} graus {_compass_label(degrees)}"
+    return _compass_label(degrees)
 
 
 def _wind_to_farm_analysis(
@@ -653,6 +690,209 @@ def _inpe_row_detections(gdf, source_key: str, source: Dict) -> List[Dict]:
             }
         )
     return detections
+
+
+def _download_inpe_active_events_kml() -> Optional[Path]:
+    INPE_ACTIVE_EVENTS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    cache_path = INPE_ACTIVE_EVENTS_CACHE_DIR / "eventos_ativos.kml"
+    try:
+        response = requests.get(INPE_ACTIVE_EVENTS_KML_URL, timeout=45)
+        response.raise_for_status()
+        content = response.content
+        if b"<kml" not in content[:500].lower():
+            return cache_path if cache_path.exists() else None
+        cache_path.write_bytes(content)
+        return cache_path
+    except Exception:
+        return cache_path if cache_path.exists() else None
+
+
+def _strip_html(value: str) -> str:
+    text = re.sub(r"<[^>]+>", " ", str(value or ""))
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _parse_kml_description(description: str) -> Dict[str, str]:
+    decoded = html.unescape(str(description or ""))
+    props: Dict[str, str] = {}
+    for key_html, value_html in re.findall(r"<td[^>]*>(.*?)</td>\s*<td[^>]*>(.*?)</td>", decoded, flags=re.I | re.S):
+        key = _strip_html(key_html)
+        value = _strip_html(value_html)
+        if key:
+            props[key] = value
+    return props
+
+
+def _event_date_utc(value: str, end_of_day: bool = False) -> Optional[datetime]:
+    raw_value = str(value or "").strip()
+    if not raw_value:
+        return None
+    parsed = pd.to_datetime(raw_value, errors="coerce")
+    if pd.isna(parsed):
+        return None
+    day = parsed.date()
+    hour, minute, second = (23, 59, 59) if end_of_day else (0, 0, 0)
+    return datetime(day.year, day.month, day.day, hour, minute, second, tzinfo=LOCAL_TZ).astimezone(timezone.utc)
+
+
+def _inpe_active_events_gdf() -> Optional[gpd.GeoDataFrame]:
+    kml_path = _download_inpe_active_events_kml()
+    if not kml_path:
+        return None
+    content = kml_path.read_bytes()
+    root = ET.fromstring(content)
+    ns = {"kml": "http://www.opengis.net/kml/2.2"}
+    records: List[Dict] = []
+    geometries: List[Point] = []
+    last_event_name = ""
+    for placemark in root.findall(".//kml:Placemark", ns):
+        name_node = placemark.find("kml:name", ns)
+        raw_name = name_node.text if name_node is not None and name_node.text else ""
+        coord_node = placemark.find(".//kml:Point/kml:coordinates", ns)
+        if coord_node is None or not coord_node.text:
+            if raw_name:
+                last_event_name = raw_name
+            continue
+        try:
+            parts = [float(part) for part in coord_node.text.strip().split(",")[:2]]
+            lon, lat = parts[0], parts[1]
+        except Exception:
+            continue
+        description_node = placemark.find("kml:description", ns)
+        name = raw_name or last_event_name
+        description = description_node.text if description_node is not None and description_node.text else ""
+        props = _parse_kml_description(description)
+        event_id_match = re.search(r"(\d+)", str(name))
+        event_start = _event_date_utc(props.get("Data início") or props.get("Data inicio"))
+        event_end = _event_date_utc(props.get("Data fim"), end_of_day=True) or event_start
+        records.append(
+            {
+                "id": event_id_match.group(1) if event_id_match else str(name),
+                "nome": str(name),
+                "tipo": props.get("Tipo", ""),
+                "data_inicio": props.get("Data início") or props.get("Data inicio", ""),
+                "data_fim": props.get("Data fim", ""),
+                "duracao": props.get("Duração") or props.get("Duracao", ""),
+                "municipio": props.get("Município") or props.get("Municipio", ""),
+                "estado": props.get("Estado", ""),
+                "bioma": props.get("Bioma", ""),
+                "satelite": props.get("Satélite") or props.get("Satelite", "Eventos Ativos INPE"),
+                "__event_start_utc": event_start,
+                "__event_end_utc": event_end,
+            }
+        )
+        geometries.append(Point(lon, lat))
+    if not records:
+        return None
+    return gpd.GeoDataFrame(records, geometry=geometries, crs="EPSG:4326")
+
+
+def _inpe_active_event_detections(gdf, source_key: str, source: Dict) -> List[Dict]:
+    detections: List[Dict] = []
+    if gdf is None or gdf.empty:
+        return detections
+    for _, row in gdf.iterrows():
+        geom = row.geometry
+        if geom is None or geom.is_empty:
+            continue
+        event_time = row.get("__event_end_utc") or row.get("__event_start_utc")
+        props = {
+            "id": str(row.get("id", "")),
+            "evento": str(row.get("nome", "")),
+            "tipo": str(row.get("tipo", "")),
+            "data_inicio": str(row.get("data_inicio", "")),
+            "data_fim": str(row.get("data_fim", "")),
+            "duracao": str(row.get("duracao", "")),
+            "municipio": str(row.get("municipio", "")),
+            "estado": str(row.get("estado", "")),
+            "bioma": str(row.get("bioma", "")),
+        }
+        detections.append(
+            {
+                "lon": float(geom.x),
+                "lat": float(geom.y),
+                "geometry_geojson": geom.__geo_interface__,
+                "geometry_type": "Point",
+                "source": source["name"],
+                "source_key": source_key,
+                "satellite": str(row.get("satelite") or source.get("satellite", "Eventos Ativos INPE")),
+                "event_type": props["tipo"] or str(source.get("event_type", "Evento ativo INPE")),
+                "alert_capable": bool(source.get("alert")),
+                "distance_capable": bool(source.get("distance")),
+                "priority": int(source.get("priority", 99)),
+                "properties": props,
+                "value": 1,
+                "detection_datetime": format_datetime_brasilia(event_time),
+                "detection_datetime_zulu": format_datetime_zulu(event_time),
+                "detection_period": f"Evento ativo INPE: {props['data_inicio']} a {props['data_fim']}",
+            }
+        )
+    return detections
+
+
+def _inpe_eventos_ativos(source_key: str, source: Dict, roi_geojson: Dict, start: datetime, end: datetime, reference: datetime) -> Dict:
+    roi_shape = shape(roi_geojson)
+    gdf = _inpe_active_events_gdf()
+    if gdf is None or gdf.empty:
+        return _empty_result(source_key, source, reference, start, end, "ignorado", "Arquivo KML de eventos ativos INPE indisponivel ou vazio.")
+
+    start_ts = pd.Timestamp(start)
+    end_ts = pd.Timestamp(end)
+    gdf = gdf[
+        gdf.geometry.intersects(roi_shape)
+        & (
+            gdf["__event_start_utc"].isna()
+            | gdf["__event_end_utc"].isna()
+            | ((gdf["__event_start_utc"] <= end_ts) & (gdf["__event_end_utc"] >= start_ts))
+        )
+    ].copy()
+    if gdf.empty:
+        return _empty_result(source_key, source, reference, start, end, "ignorado", "Sem eventos ativos INPE na ROI e na janela de referencia.")
+
+    sample_limit = int(source.get("sample_limit", 15000))
+    if len(gdf) > sample_limit:
+        gdf = gdf.head(sample_limit).copy()
+    detections = _inpe_active_event_detections(gdf, source_key, source)
+    latest_time = gdf["__event_end_utc"].dropna().max() if "__event_end_utc" in gdf.columns else None
+    render_columns = [
+        column
+        for column in ["id", "nome", "tipo", "data_inicio", "data_fim", "duracao", "municipio", "estado", "bioma", "satelite", "geometry"]
+        if column in gdf.columns
+    ]
+    render_gdf = gdf[render_columns].copy()
+    for column in render_gdf.columns:
+        if column != "geometry":
+            render_gdf[column] = render_gdf[column].astype(str)
+    layer = {
+        "name": "INPE Eventos Ativos | Eventos detectados",
+        "layer_type": "point_geojson",
+        "geojson": render_gdf.to_json(),
+        "fields": [column for column in ["id", "tipo", "data_inicio", "data_fim", "municipio", "estado", "bioma"] if column in render_gdf.columns],
+        "source": source["name"],
+        "indicator": source["label"],
+        "image_datetime": format_datetime_brasilia(latest_time),
+        "image_datetime_zulu": format_datetime_zulu(latest_time),
+        "period": format_period_brasilia(start, end),
+        "period_zulu": format_period_zulu(start, end),
+        "composition": "KML eventos_ativos.kml filtrado pela ROI e janela temporal",
+        "source_key": source_key,
+        "color": "#a3e635",
+        "show": True,
+    }
+    count = int(len(gdf))
+    message = f"{count} evento(s) ativo(s) INPE encontrado(s) e processado(s) para distancia."
+    return {
+        "source_key": source_key,
+        "source": source,
+        "layers": [layer],
+        "points": detections,
+        "count": count,
+        "image_datetime": layer["image_datetime"],
+        "image_datetime_zulu": layer["image_datetime_zulu"],
+        "status": "plotado",
+        "message": message,
+        "log": _log(source_key, source, reference, start, end, count, "plotado", message),
+    }
 
 
 def _inpe_queimadas(source_key: str, source: Dict, roi_geojson: Dict, start: datetime, end: datetime, reference: datetime) -> Dict:
@@ -1303,6 +1543,8 @@ def fetch_source_data(
             return _noaa_hms_smoke(source_name, source, roi_geojson, start, end, reference)
         if query == "inpe_queimadas":
             return _inpe_queimadas(source_name, source, roi_geojson, start, end, reference)
+        if query == "inpe_eventos_ativos":
+            return _inpe_eventos_ativos(source_name, source, roi_geojson, start, end, reference)
         if query == "nasa_gibs_hotspots":
             return _nasa_gibs_hotspots(source_name, source, roi_geojson, start, end, reference)
         roi = _roi_geometry(roi_geojson)
@@ -1478,8 +1720,8 @@ def compute_hotspot_distances(
                 "rumo_foco_fazenda_graus": wind.get("wind_bearing_to_farm_deg", ""),
                 "fonte_vento": wind.get("wind_source", ""),
                 "alerta_vento": wind_alert,
-                "data_hora_deteccao": str(point_data.get("detection_datetime", "")),
-                "data_hora_deteccao_zulu": str(point_data.get("detection_datetime_zulu", "")),
+                "data_hora_deteccao": _detection_time_brasilia(point_data),
+                "data_hora_deteccao_zulu": _detection_time_zulu(point_data),
                 "periodo_deteccao": str(point_data.get("detection_period", "")),
                 "satelite": str(point_data.get("satellite", "")),
                 "tipo": str(point_data.get("event_type", "")),

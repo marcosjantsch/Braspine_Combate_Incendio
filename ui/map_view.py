@@ -19,6 +19,37 @@ from core.geometry_service import bearing_between, endpoint, fit_center, segment
 
 WEB_MERCATOR = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
 LINE_SELECTION_THRESHOLD_M = 1200
+FARM_OUTLINE_COLOR = "#a3ff12"
+FARM_FILL_COLOR = "#22c55e"
+DETECTION_COLORS = {
+    "FIRMS MODIS": "#ff7a00",
+    "MODIS FIRMS": "#ff7a00",
+    "VIIRS": "#ff003c",
+    "MODIS Terra FireMask": "#ffd400",
+    "MODIS anomalia": "#ffd400",
+    "GOES": "#c026d3",
+    "GOES Hotspot/FDCF": "#c026d3",
+    "NASA GIBS Hotspots": "#ff00ff",
+    "NASA GIBS | VIIRS SNPP": "#ff003c",
+    "NASA GIBS | VIIRS NOAA-20": "#ff003c",
+    "NASA GIBS VIIRS": "#ff003c",
+    "NASA GIBS MODIS": "#ff7a00",
+    "INPE Queimadas": "#22c55e",
+    "INPE Eventos Ativos": "#a3e635",
+    "BDQueimadas": "#22c55e",
+    "Eventos Ativos INPE": "#a3e635",
+    "NOAA HMS Smoke": "#64748b",
+}
+DETECTION_LEGEND_ITEMS = [
+    ("GOES", DETECTION_COLORS["GOES"], "Hotspot GOES/FDCF"),
+    ("VIIRS", DETECTION_COLORS["VIIRS"], "VIIRS 375 m"),
+    ("FIRMS MODIS", DETECTION_COLORS["FIRMS MODIS"], "FIRMS/MODIS"),
+    ("NASA GIBS", DETECTION_COLORS["NASA GIBS Hotspots"], "NASA GIBS"),
+    ("INPE", DETECTION_COLORS["INPE Queimadas"], "INPE Queimadas"),
+    ("INPE Ativos", DETECTION_COLORS["INPE Eventos Ativos"], "Eventos ativos INPE"),
+    ("MODIS FireMask", DETECTION_COLORS["MODIS Terra FireMask"], "Anomalia termica"),
+    ("NOAA HMS", DETECTION_COLORS["NOAA HMS Smoke"], "Fumaca"),
+]
 
 
 class ModifierClickFilter(MacroElement):
@@ -86,17 +117,17 @@ def add_farms_to_map(map_obj: folium.Map, gdf, selected_companies: Iterable[str]
         data=render_gdf.to_json(),
         name="Empresas selecionadas",
         style_function=lambda _: {
-            "color": "#ffcf4a",
-            "weight": 2.4,
-            "fillColor": "#2d7a55",
-            "fillOpacity": 0.18,
+            "color": FARM_OUTLINE_COLOR,
+            "weight": 3.0,
+            "fillColor": FARM_FILL_COLOR,
+            "fillOpacity": 0.10,
             "opacity": 0.95,
         },
         highlight_function=lambda _: {
             "color": "#ffffff",
             "weight": 3.4,
-            "fillColor": "#ffcf4a",
-            "fillOpacity": 0.28,
+            "fillColor": FARM_OUTLINE_COLOR,
+            "fillOpacity": 0.22,
             "opacity": 1,
         },
         popup=folium.GeoJsonPopup(fields=popup_fields, labels=True) if popup_fields else None,
@@ -212,23 +243,6 @@ def add_detection_points_to_map(map_obj: folium.Map) -> None:
         ]
     if not points:
         return
-    colors = {
-        "FIRMS MODIS": "#ff7a00",
-        "MODIS FIRMS": "#ff7a00",
-        "VIIRS": "#ff003c",
-        "MODIS Terra FireMask": "#ffd400",
-        "MODIS anomalia": "#ffd400",
-        "GOES": "#c026d3",
-        "GOES Hotspot/FDCF": "#c026d3",
-        "NASA GIBS Hotspots": "#ff00ff",
-        "NASA GIBS | VIIRS SNPP": "#ff003c",
-        "NASA GIBS | VIIRS NOAA-20": "#ff003c",
-        "NASA GIBS VIIRS": "#ff003c",
-        "NASA GIBS MODIS": "#ff7a00",
-        "INPE Queimadas": "#22c55e",
-        "BDQueimadas": "#22c55e",
-        "NOAA HMS Smoke": "#64748b",
-    }
     group_name = "Focos detectados" if show_all else "Focos dentro dos padroes de distancia"
     group = folium.FeatureGroup(name=group_name, show=True)
     grouped_points: Dict[str, List[Dict]] = {}
@@ -255,7 +269,7 @@ def add_detection_points_to_map(map_obj: folium.Map) -> None:
             color="#111827",
             weight=1,
             fill=True,
-            fill_color=colors.get(source, colors.get(satellite, "#ef4444")),
+            fill_color=DETECTION_COLORS.get(source, DETECTION_COLORS.get(satellite, "#ef4444")),
             fill_opacity=0.85,
             tooltip=f"{event_type} | {satellite}",
         ).add_to(group)
@@ -268,22 +282,6 @@ def add_day_detection_points_to_map(map_obj: folium.Map) -> None:
     points = st.session_state.get("day_detection_points", [])
     if not points:
         return
-    colors = {
-        "FIRMS MODIS": "#ff7a00",
-        "MODIS FIRMS": "#ff7a00",
-        "VIIRS": "#ff003c",
-        "MODIS Terra FireMask": "#ffd400",
-        "GOES": "#c026d3",
-        "GOES Hotspot/FDCF": "#c026d3",
-        "NASA GIBS Hotspots": "#ff00ff",
-        "NASA GIBS | VIIRS SNPP": "#ff003c",
-        "NASA GIBS | VIIRS NOAA-20": "#ff003c",
-        "NASA GIBS VIIRS": "#ff003c",
-        "NASA GIBS MODIS": "#ff7a00",
-        "INPE Queimadas": "#22c55e",
-        "BDQueimadas": "#22c55e",
-        "NOAA HMS Smoke": "#64748b",
-    }
     group = folium.FeatureGroup(name="Detecções do dia", show=True)
     grouped_points: Dict[str, List[Dict]] = {}
     for point in points:
@@ -311,7 +309,7 @@ def add_day_detection_points_to_map(map_obj: folium.Map) -> None:
             color="#0f172a",
             weight=1,
             fill=True,
-            fill_color=colors.get(source, colors.get(satellite, "#f97316")),
+            fill_color=DETECTION_COLORS.get(source, DETECTION_COLORS.get(satellite, "#f97316")),
             fill_opacity=0.72,
             tooltip=f"Detecção do dia | {event_type} | {satellite}",
         ).add_to(group)
@@ -356,6 +354,61 @@ def add_hotspot_focus_to_map(map_obj: folium.Map) -> None:
         opacity=0.95,
     ).add_to(focus_group)
     focus_group.add_to(map_obj)
+
+
+def has_detection_points() -> bool:
+    summary = st.session_state.get("fire_detection_summary", {})
+    if isinstance(summary, dict) and (summary.get("points") or summary.get("nearest_farms") or summary.get("all_roi_detections")):
+        return True
+    return bool(st.session_state.get("day_detection_points"))
+
+
+def add_map_legend(map_obj: folium.Map, has_risk_layer: bool) -> None:
+    if not st.session_state.get("show_map_legend", True):
+        return
+
+    goes_time = st.session_state.get("last_goes_time") or "sem imagem GOES"
+    risk_section = ""
+    if has_risk_layer:
+        risk_section = f"""
+            <strong>Risco de incendio</strong><br>
+            <span style="color:#1a9850">■</span> Baixo 0-25<br>
+            <span style="color:#ffff00">■</span> Moderado 25-50<br>
+            <span style="color:#fdae61">■</span> Alto 50-75<br>
+            <span style="color:#d7191c">■</span> Muito alto 75-100<br>
+            <span>GOES: {goes_time}</span>
+        """
+
+    detection_section = ""
+    if has_detection_points():
+        detection_lines = "".join(
+            f'<span style="color:{color}">●</span> {label}<br>'
+            for _, color, label in DETECTION_LEGEND_ITEMS
+        )
+        detection_section = f"""
+            <div style="margin-top:{'8px' if risk_section else '0'};">
+                <strong>Origem dos pontos</strong><br>
+                {detection_lines}
+            </div>
+        """
+
+    if not risk_section and not detection_section:
+        return
+
+    legend_html = f"""
+    <div style="
+        position: fixed; bottom: 22px; left: 22px; z-index: 9999;
+        background: rgba(2, 6, 23, 0.88); color: #ecfdf5;
+        padding: 8px 10px; border: 1px solid rgba(52,211,153,.35);
+        border-radius: 8px; font-size: 10px; line-height: 1.25;
+        box-shadow: 0 10px 28px rgba(0,0,0,.28);">
+        <strong>Mapa operacional</strong><br>
+        <span style="color:{FARM_OUTLINE_COLOR}">▭</span> Empresas selecionadas<br>
+        {risk_section}
+        {detection_section}
+    </div>
+    """
+    map_obj.get_root().html.add_child(folium.Element(legend_html))
 
 
 def add_manual_coordinate_to_map(map_obj: folium.Map) -> None:
@@ -634,23 +687,7 @@ def build_main_map(
         str(layer.get("name", "")).startswith("Risco de incendio")
         for layer in st.session_state.get("fire_risk_layers", [])
     )
-    if has_risk_layer and st.session_state.get("show_map_legend", True):
-        goes_time = st.session_state.get("last_goes_time") or "sem imagem GOES"
-        legend_html = f"""
-        <div style="
-            position: fixed; bottom: 22px; left: 22px; z-index: 9999;
-            background: rgba(2, 6, 23, 0.88); color: #ecfdf5;
-            padding: 8px 10px; border: 1px solid rgba(52,211,153,.35);
-            border-radius: 8px; font-size: 10px; line-height: 1.25;">
-            <strong>Risco de incêndio</strong><br>
-            <span style="color:#1a9850">■</span> Baixo 0-25<br>
-            <span style="color:#ffff00">■</span> Moderado 25-50<br>
-            <span style="color:#fdae61">■</span> Alto 50-75<br>
-            <span style="color:#d7191c">■</span> Muito alto 75-100<br>
-            <span>GOES: {goes_time}</span>
-        </div>
-        """
-        fmap.get_root().html.add_child(folium.Element(legend_html))
+    add_map_legend(fmap, has_risk_layer)
     if capture_clicks:
         hint_html = """
         <div style="

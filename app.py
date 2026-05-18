@@ -315,6 +315,16 @@ def distance_table_rows(items: list[dict]) -> list[dict]:
     ]
 
 
+def wind_direction_label(degrees) -> str:
+    try:
+        value = float(degrees) % 360.0
+    except Exception:
+        return "-"
+    labels = ["Norte", "Nordeste", "Leste", "Sudeste", "Sul", "Sudoeste", "Oeste", "Noroeste"]
+    index = int((value + 22.5) // 45) % 8
+    return labels[index]
+
+
 def grouped_distance_rows(nearest: list[dict]) -> list[tuple[str, list[dict]]]:
     groups: dict[str, list[dict]] = {}
     for item in nearest:
@@ -549,11 +559,12 @@ def render_fire_detection_panel(gdf, selected_companies) -> None:
         temp = wind_context.get("temperature_c")
         speed = wind_context.get("speed_kmh")
         direction = wind_context.get("direction_deg")
+        direction_text = wind_context.get("direction_label") or wind_direction_label(direction)
         condition = wind_context.get("weather_condition", "-")
         met_cols = st.columns(4)
         met_cols[0].metric("Temperatura aprox. ROI", f"{float(temp):.1f} graus C" if temp not in (None, "") else "-")
         met_cols[1].metric("Condicao do tempo", str(condition or "-"))
-        met_cols[2].metric("Direcao do vento", f"{float(direction):.0f} graus" if direction not in (None, "") else "-")
+        met_cols[2].metric("Direcao do vento", direction_text)
         met_cols[3].metric("Velocidade do vento", f"{float(speed):.1f} km/h" if speed not in (None, "") else "-")
     day_points_total = int(st.session_state.get("day_detection_points_total", 0) or 0)
     day_period = st.session_state.get("day_detection_period", "")
@@ -586,9 +597,10 @@ def render_fire_detection_panel(gdf, selected_companies) -> None:
     if wind_context:
         speed = wind_context.get("speed_kmh", "-")
         direction = wind_context.get("direction_deg", "-")
+        direction_text = wind_context.get("direction_label") or wind_direction_label(direction)
         wind_alert_count = int(summary.get("wind_alert_count", 0) or 0)
         st.caption(
-            f"Vento de referencia: {speed} km/h, direcao {direction} graus "
+            f"Vento de referencia: {speed} km/h, direcao {direction_text} "
             f"({wind_context.get('source', 'fonte meteorologica')}). "
             f"Fazendas com foco <= 5 km e vento direcionado: {wind_alert_count}."
         )

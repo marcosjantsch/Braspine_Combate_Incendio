@@ -44,12 +44,14 @@ RISK_INDICATOR = "Risco de incendio florestal"
 GOES_VISUAL_INDICATOR = "GOES visual meteorologico"
 GOES_THERMAL_INDICATOR = "GOES temperatura de brilho"
 GOES_HOTSPOT_INDICATOR = "GOES hotspots recentes"
-GOES_INDICATORS = {GOES_VISUAL_INDICATOR, GOES_THERMAL_INDICATOR, GOES_HOTSPOT_INDICATOR}
+INPE_ACTIVE_EVENTS_INDICATOR = "INPE Eventos Ativos"
+GOES_INDICATORS = {GOES_VISUAL_INDICATOR, GOES_THERMAL_INDICATOR, GOES_HOTSPOT_INDICATOR, INPE_ACTIVE_EVENTS_INDICATOR}
 DEFAULT_GEE_INDICATORS = [
     "Risco de incendio florestal",
     "GOES hotspots recentes",
     "NASA GIBS Hotspots",
     "INPE Queimadas",
+    "INPE Eventos Ativos",
     "FIRMS MODIS",
     "VIIRS 375 m",
     "MODIS Terra FireMask",
@@ -160,10 +162,10 @@ def scheduled_auto_refresh_indicators(applied_indicators: List[str], moment: dat
 
     if pending_checkpoint:
         selected = list(dict.fromkeys([*selected_goes, *selected_orbital]))
-        return selected, f"Consulta orbital pendente desde {pending_checkpoint}; GOES e satelites de passagem foram reconsultados."
+        return selected, f"Consulta orbital pendente desde {pending_checkpoint}; GOES, eventos ativos INPE e satelites de passagem foram reconsultados."
 
     selected = selected_goes
-    return selected, f"Fora dos horarios orbitais programados ({ORBITAL_WINDOW_LABEL}); apenas camadas GOES foram reconsultadas."
+    return selected, f"Fora dos horarios orbitais programados ({ORBITAL_WINDOW_LABEL}); apenas camadas GOES e eventos ativos INPE foram reconsultados."
 
 
 def _roi_center_from_bounds(bounds) -> tuple[float, float] | None:
@@ -205,6 +207,16 @@ def _weather_condition_label(weather_code, cloud_cover, precipitation, humidity)
     if cloud_cover is not None:
         return "Ensolarado"
     return "-"
+
+
+def _wind_direction_label(degrees) -> str:
+    try:
+        value = float(degrees) % 360.0
+    except Exception:
+        return "-"
+    labels = ["Norte", "Nordeste", "Leste", "Sudeste", "Sul", "Sudoeste", "Oeste", "Noroeste"]
+    index = int((value + 22.5) // 45) % 8
+    return labels[index]
 
 
 @st.cache_data(ttl=900, show_spinner=False)
@@ -251,6 +263,7 @@ def _cached_wind_context(lat: float, lon: float, reference_local_iso: str) -> di
         "humidity_pct": humidity,
         "speed_kmh": speed,
         "direction_deg": direction,
+        "direction_label": _wind_direction_label(direction),
         "time": times[best_index],
         "source": "Open-Meteo centro da ROI",
         "status": f"Vento carregado no centro da ROI em {times[best_index]}.",
