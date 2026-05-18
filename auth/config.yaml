@@ -144,10 +144,11 @@ credentials:
       email: marcos.jantsch@valorflorestal.com.br
       role: admin
       password: $2b$12$VXanUE0Jk47kGZcXQbzeAOD6Vl1guEP6ZlFEYJp6zMDztlvTygMHa
+    eduardo:
+      name: eduardo
+      email: marcos.jantsch@valorflorestal.com.br
+      role: user
+      password: $2b$12$80zkZOtrl6HjATIyziQrHOlv/fX4q2fD891.UetIvXAB7dSQzjOnO
 preauthorized:
   emails:
   - marcos.jantsch@gmail.com
-earth_engine:
-  project: streamelit
-  service_account_email: ''
-  service_account_file: ''
